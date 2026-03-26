@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #111; display: flex; flex-direction: column; height: 100vh; }
+
+    #pad {
+      height: 55vh;
+      background: #222;
+      border-bottom: 2px solid #444;
+      touch-action: none;
+    }
+
+    #buttons {
+      display: flex;
+      height: 90px;
+    }
+
+    button {
+      flex: 1;
+      font-size: 1.1rem;
+      background: #2a2a2a;
+      color: #eee;
+      border: none;
+      border-right: 1px solid #444;
+    }
+
+    button:last-child { border-right: none; }
+    button:active { background: #444; }
+
+    #status {
+      color: #888;
+      font-size: 0.8rem;
+      text-align: center;
+      padding: 6px;
+      background: #111;
+    }
+  </style>
+</head>
+<body>
+  <div id="status">Connecting...</div>
+  <div id="pad"></div>
+  <div id="buttons">
+    <button id="leftBtn">Left Click</button>
+    <button id="scrollBtn">⬆ Scroll ⬇</button>
+    <button id="rightBtn">Right Click</button>
+  </div>
+
+  <script>
+    const pad = document.getElementById('pad');
+    const status = document.getElementById('status');
+    let lastX = null, lastY = null;
+    let scrollMode = false;
+    let lastSent = 0;
+
+    // open one persistent WebSocket connection
+    const ws = new WebSocket(`ws://${location.host}/ws`);
+
+    ws.onopen = () => status.textContent = 'Connected';
+    ws.onclose = () => status.textContent = 'Disconnected — refresh to reconnect';
+    ws.onerror = () => status.textContent = 'Error';
+
+    function send(data) {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(data));
+      }
+    }
+
+    document.getElementById('scrollBtn').addEventListener('pointerdown', () => scrollMode = true);
+    document.getElementById('scrollBtn').addEventListener('pointerup', () => scrollMode = false);
+    document.getElementById('leftBtn').addEventListener('click', () => send({ action: 'click', button: 'left' }));
+    document.getElementById('rightBtn').addEventListener('click', () => send({ action: 'click', button: 'right' }));
+
+    pad.addEventListener('pointerdown', e => {
+      lastX = e.clientX;
+      lastY = e.clientY;
+    });
+
+    pad.addEventListener('pointermove', e => {
+      if (!(e.buttons & 1)) return;
+      if (lastX === null) return;
+
+      const now = Date.now();
+      if (now - lastSent < 3) return;
+      lastSent = now;
+
+      const dx = (e.clientX - lastX) * 3;
+      const dy = (e.clientY - lastY) * 3;
+      lastX = e.clientX;
+      lastY = e.clientY;
+
+      if (scrollMode) {
+        send({ action: 'scroll', amount: -Math.round(dy / 5) });
+      } else {
+        send({ action: 'move', dx: Math.round(dx), dy: Math.round(dy) });
+      }
+    });
+
+    pad.addEventListener('pointerup', () => { lastX = null; lastY = null; });
+    pad.addEventListener('pointercancel', () => { lastX = null; lastY = null; });
+  </script>
+</body>
+</html>
