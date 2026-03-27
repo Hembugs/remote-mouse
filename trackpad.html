@@ -7,28 +7,10 @@
     body { background: #111; display: flex; flex-direction: column; height: 100vh; }
 
     #pad {
-      height: 70vh;
+      height: 100vh;
       background: #222;
-      border-bottom: 2px solid #444;
       touch-action: none;
     }
-
-    #buttons {
-      display: flex;
-      height: 90px;
-    }
-
-    button {
-      flex: 1;
-      font-size: 1.1rem;
-      background: #2a2a2a;
-      color: #eee;
-      border: none;
-      border-right: 1px solid #444;
-    }
-
-    button:last-child { border-right: none; }
-    button:active { background: #444; }
 
     #status {
       color: #888;
@@ -36,28 +18,21 @@
       text-align: center;
       padding: 6px;
       background: #111;
+      position: fixed;
+      top: 0;
+      width: 100%;
     }
   </style>
 </head>
 <body>
   <div id="status">Connecting...</div>
   <div id="pad"></div>
-  <div id="buttons">
-    <button id="leftBtn">Left Click</button>
-    <button id="scrollBtn">⬆ Scroll ⬇</button>
-    <button id="rightBtn">Right Click</button>
-  </div>
 
   <script>
     const pad = document.getElementById('pad');
     const status = document.getElementById('status');
-    let lastX = null, lastY = null;
-    let scrollMode = false;
-    let lastSent = 0;
 
-    // open one persistent WebSocket connection
     const ws = new WebSocket(`ws://${location.host}/ws`);
-
     ws.onopen = () => status.textContent = 'Connected';
     ws.onclose = () => status.textContent = 'Disconnected — refresh to reconnect';
     ws.onerror = () => status.textContent = 'Error';
@@ -68,38 +43,141 @@
       }
     }
 
-    document.getElementById('scrollBtn').addEventListener('pointerdown', () => scrollMode = true);
-    document.getElementById('scrollBtn').addEventListener('pointerup', () => scrollMode = false);
-    document.getElementById('leftBtn').addEventListener('click', () => send({ action: 'click', button: 'left' }));
-    document.getElementById('rightBtn').addEventListener('click', () => send({ action: 'click', button: 'right' }));
+    let lastSent = 0;
+    let activeTouches = {};
+    let dragMode = false;
+    let tapCount = 0;
+    let tapTimer = null;
+    let tapStartX, tapStartY;
+    let threeFingerActive = false;
+    let threeFingerLastX = null;
+    const TAP_TIMEOUT = 250;
+    const MOVE_THRESHOLD = 10;
+    const THREE_FINGER_NOTCH = 40;
 
-    pad.addEventListener('pointerdown', e => {
-      lastX = e.clientX;
-      lastY = e.clientY;
-    });
+    pad.addEventListener('touchstart', e => {
+      e.preventDefault();
+      const touches = e.touches;
 
-    pad.addEventListener('pointermove', e => {
-      if (!(e.buttons & 1)) return;
-      if (lastX === null) return;
+      for (let t of touches) {
+        activeTouches[t.identifier] = { x: t.clientX, y: t.clientY };
+      }
 
+      if (touches.length === 3) {
+        threeFingerActive = true;
+        threeFingerLastX = touches[0].clientX;
+        send({ action: 'alt_down' });
+        send({ action: 'tab_press' });
+      }
+
+      if (touches.length === 1) {
+        tapStartX = touches[0].clientX;
+        tapStartY = touches[0].clientY;
+
+        if (tapCount === 1) {
+          clearTimeout(tapTimer);
+          tapTimer = null;
+          tapCount = 0;
+          send({ action: 'mousedown' });
+          dragMode = true;
+        }
+      }
+    }, { passive: false });
+
+    pad.addEventListener('touchmove', e => {
+      e.preventDefault();
+      const touches = e.touches.length ? e.touches : e.changedTouches;
       const now = Date.now();
-      if (now - lastSent < 3) return;
+      if (now - lastSent < 1) return;
       lastSent = now;
 
-      const dx = (e.clientX - lastX) * 3;
-      const dy = (e.clientY - lastY) * 3;
-      lastX = e.clientX;
-      lastY = e.clientY;
+      if (touches.length === 3 && threeFingerActive) {
+        const currentX = touches[0].clientX;
+        const diff = currentX - threeFingerLastX;
 
-      if (scrollMode) {
-        send({ action: 'scroll', amount: -Math.round(dy / 5) });
-      } else {
-        send({ action: 'move', dx: Math.round(dx), dy: Math.round(dy) });
+        if (diff > THREE_FINGER_NOTCH) {
+          send({ action: 'tab_press' });
+          threeFingerLastX = currentX;
+        } else if (diff < -THREE_FINGER_NOTCH) {
+          send({ action: 'shift_tab_press' });
+          threeFingerLastX = currentX;
+        }
+        return;
+      }
+
+      if (touches.length === 2) {
+        const t1 = touches[0];
+        const t2 = touches[1];
+        const prevT1 = activeTouches[t1.identifier];
+        const prevT2 = activeTouches[t2.identifier];
+
+        if (prevT1 && prevT2) {
+          const dy = ((t1.clientY - prevT1.y) + (t2.clientY - prevT2.y)) / 2;
+          send({ action: 'scroll', amount: Math.round(dy / 3) });
+        }
+
+        activeTouches[t1.identifier] = { x: t1.clientX, y: t1.clientY };
+        activeTouches[t2.identifier] = { x: t2.clientX, y: t2.clientY };
+
+      } else if (touches.length === 1) {
+        const t = touches[0];
+        const prev = activeTouches[t.identifier];
+        if (!prev) return;
+
+        const dx = (t.clientX - prev.x) * 3;
+        const dy = (t.clientY - prev.y) * 3;
+
+        const totalMoved = Math.abs(t.clientX - tapStartX) + Math.abs(t.clientY - tapStartY);
+        if (totalMoved > MOVE_THRESHOLD && tapTimer) {
+          clearTimeout(tapTimer);
+          tapTimer = null;
+          tapCount = 0;
+        }
+
+        if (dragMode) {
+          send({ action: 'move', dx: Math.round(dx), dy: Math.round(dy) });
+        } else if (totalMoved > MOVE_THRESHOLD) {
+          send({ action: 'move', dx: Math.round(dx), dy: Math.round(dy) });
+        }
+
+        activeTouches[t.identifier] = { x: t.clientX, y: t.clientY };
+      }
+    }, { passive: false });
+
+    pad.addEventListener('touchend', e => {
+      e.preventDefault();
+      const touches = e.changedTouches;
+
+      for (let t of touches) {
+        delete activeTouches[t.identifier];
+      }
+
+      if (threeFingerActive && e.touches.length === 0) {
+        send({ action: 'alt_up' });
+        threeFingerActive = false;
+        threeFingerLastX = null;
+        return;
+      }
+
+      if (dragMode) {
+        send({ action: 'mouseup' });
+        dragMode = false;
+        tapCount = 0;
+        return;
+      }
+
+      const totalMoved = Math.abs(touches[0].clientX - tapStartX) + Math.abs(touches[0].clientY - tapStartY);
+      if (totalMoved > MOVE_THRESHOLD) return;
+
+      tapCount++;
+
+      if (tapCount === 1) {
+        tapTimer = setTimeout(() => {
+          send({ action: 'click', button: 'left' });
+          tapCount = 0;
+        }, TAP_TIMEOUT);
       }
     });
-
-    pad.addEventListener('pointerup', () => { lastX = null; lastY = null; });
-    pad.addEventListener('pointercancel', () => { lastX = null; lastY = null; });
   </script>
 </body>
 </html>

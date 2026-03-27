@@ -33,6 +33,22 @@ def websocket(ws):
                     ctypes.windll.user32.mouse_event(0x0010, 0, 0, 0, 0)
             elif action == 'scroll':
                 ctypes.windll.user32.mouse_event(0x0800, 0, 0, int(data['amount']) * 120, 0)
+            elif action == 'mousedown':
+                ctypes.windll.user32.mouse_event(0x0002, 0, 0, 0, 0)
+            elif action == 'mouseup':
+                ctypes.windll.user32.mouse_event(0x0004, 0, 0, 0, 0)
+            elif action == 'alt_down':
+                ctypes.windll.user32.keybd_event(0x12, 0, 0, 0)
+            elif action == 'alt_up':
+                ctypes.windll.user32.keybd_event(0x12, 0, 2, 0)
+            elif action == 'tab_press':
+                ctypes.windll.user32.keybd_event(0x09, 0, 0, 0)
+                ctypes.windll.user32.keybd_event(0x09, 0, 2, 0)
+            elif action == 'shift_tab_press':
+                ctypes.windll.user32.keybd_event(0x10, 0, 0, 0)
+                ctypes.windll.user32.keybd_event(0x09, 0, 0, 0)
+                ctypes.windll.user32.keybd_event(0x09, 0, 2, 0)
+                ctypes.windll.user32.keybd_event(0x10, 0, 2, 0)
         except Exception:
             break
 
