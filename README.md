@@ -17,35 +17,6 @@ virtual environment, installs dependencies, and prepares VS Code settings:
 ```bash
 git clone https://github.com/Hembugs/remote-mouse.git
 cd remote-mouse
-<<<<<<< Updated upstream
-pip install flask flask-sock
-
-## How to run
-
-1. Start the server on your laptop:
-python server.py
-
-2. Find your laptop's local IP — open Command Prompt and run:
-ipconfig
-
-Look for IPv4 Address under your WiFi adapter.
-
-3. Open your phone browser and go to:
-http://<your-ip>:5000
-
-Make sure your phone is on the same WiFi as your laptop.
-
-## Usage
-
-- **Drag** on the dark area to move the cursor
-- **Left Click / Right Click** buttons for clicking
-- **Hold Scroll** and drag to scroll
-
-## Notes
-
-- Only works on your local WiFi network
-- Don't run on public WiFi — no authentication is implemented
-=======
 ./setup_env.sh
 ```
 
@@ -120,4 +91,3 @@ git add README.md
 git commit -m "Update README with proper instructions"
 git push
 ```
->>>>>>> Stashed changes
