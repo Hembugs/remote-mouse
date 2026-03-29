@@ -10,6 +10,7 @@ import tkinter as tk
 
 import qrcode
 from PIL import ImageTk
+from werkzeug.serving import make_server
 
 app = Flask(__name__)
 sock = Sock(app)
@@ -77,7 +78,7 @@ def build_connection_url():
     return f"http://{get_local_ip()}:{SERVER_PORT}"
 
 
-def show_qr_popup(url):
+def build_qr_popup(url):
     root = tk.Tk()
     root.title("Remote Mouse QR Code")
     root.geometry("420x560")
@@ -155,11 +156,11 @@ def show_qr_popup(url):
     )
     copied_label.pack(pady=(12, 0))
 
-    root.mainloop()
+    return root
 
 
-def run_server():
-    app.run(host=SERVER_HOST, port=SERVER_PORT, debug=False, use_reloader=False)
+def run_server(http_server):
+    http_server.serve_forever()
 
 @app.route('/')
 def index():
@@ -217,14 +218,32 @@ if __name__ == '__main__':
     connection_url = build_connection_url()
     print(f"Remote Mouse is running at {connection_url}")
 
-    server_thread = threading.Thread(target=run_server, daemon=False)
+    http_server = make_server(SERVER_HOST, SERVER_PORT, app, threaded=True)
+    server_thread = threading.Thread(target=run_server, args=(http_server,), daemon=False)
     server_thread.start()
-
-    time.sleep(0.6)
+    qr_root = None
 
     try:
-        show_qr_popup(connection_url)
+        qr_root = build_qr_popup(connection_url)
     except tk.TclError:
         print("QR popup could not be displayed. Use the printed URL instead.")
 
-    server_thread.join()
+    try:
+        while server_thread.is_alive():
+            if qr_root is not None:
+                try:
+                    qr_root.update_idletasks()
+                    qr_root.update()
+                except tk.TclError:
+                    qr_root = None
+            time.sleep(0.05)
+    except KeyboardInterrupt:
+        print("\nStopping Remote Mouse...")
+    finally:
+        http_server.shutdown()
+        server_thread.join()
+        if qr_root is not None:
+            try:
+                qr_root.destroy()
+            except tk.TclError:
+                pass
