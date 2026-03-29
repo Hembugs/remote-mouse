@@ -1,0 +1,9 @@
+#Add all
+*
+
+#Except
+!.gitignore
+!README.md
+!requirements.txt
+!server.py
+!tracckpad.html

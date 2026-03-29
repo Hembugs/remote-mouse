@@ -1,65 +1,545 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>Remote Mouse</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #111; display: flex; flex-direction: column; height: 100vh; }
+    :root {
+      --bg-top: #0b1220;
+      --bg-bottom: #172033;
+      --panel: rgba(11, 18, 32, 0.74);
+      --panel-strong: rgba(15, 23, 42, 0.92);
+      --border: rgba(148, 163, 184, 0.18);
+      --text: #e5eefb;
+      --muted: #8da2c0;
+      --accent: #4fd1c5;
+      --accent-strong: #2dd4bf;
+      --accent-warm: #f59e0b;
+      --danger: #fb7185;
+      --shadow: 0 24px 60px rgba(0, 0, 0, 0.32);
+      --radius-lg: 28px;
+      --radius-md: 18px;
+      --radius-sm: 14px;
+    }
 
-    #pad {
-      height: 100vh;
-      background: #222;
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      min-height: 100%;
+    }
+
+    body {
+      font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(79, 209, 197, 0.18), transparent 28%),
+        radial-gradient(circle at top right, rgba(245, 158, 11, 0.12), transparent 24%),
+        linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+      touch-action: manipulation;
+    }
+
+    .app-shell {
+      min-height: 100vh;
+      padding: 16px;
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      gap: 14px;
+    }
+
+    .topbar,
+    .panel,
+    .button-grid button,
+    .shortcut-grid button {
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+
+    .topbar,
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
+
+    .topbar {
+      border-radius: var(--radius-lg);
+      padding: 16px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .brand h1 {
+      font-size: 1.15rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .brand p {
+      color: var(--muted);
+      font-size: 0.86rem;
+      margin-top: 4px;
+    }
+
+    .status-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.85rem;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--danger);
+      box-shadow: 0 0 16px rgba(251, 113, 133, 0.6);
+    }
+
+    .status-dot.connected {
+      background: var(--accent);
+      box-shadow: 0 0 16px rgba(79, 209, 197, 0.72);
+    }
+
+    .settings {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 14px 16px;
+      border-radius: var(--radius-md);
+    }
+
+    .slider-wrap label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.84rem;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .slider-wrap input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent-strong);
+    }
+
+    .meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .chip {
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .trackpad {
+      position: relative;
+      border-radius: 34px;
+      overflow: hidden;
+      min-height: 42vh;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background:
+        linear-gradient(135deg, rgba(79, 209, 197, 0.12), transparent 30%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
+        rgba(15, 23, 42, 0.96);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), var(--shadow);
       touch-action: none;
     }
 
-    #status {
-      color: #888;
-      font-size: 0.8rem;
+    .trackpad::before,
+    .trackpad::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .trackpad::before {
+      background:
+        linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+      background-size: 28px 28px;
+      mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.7), transparent);
+    }
+
+    .trackpad::after {
+      background: radial-gradient(circle at center, rgba(79, 209, 197, 0.13), transparent 48%);
+    }
+
+    .trackpad-copy {
+      position: absolute;
+      top: 18px;
+      left: 18px;
+      right: 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      pointer-events: none;
+    }
+
+    .trackpad-copy h2 {
+      font-size: 0.95rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .trackpad-copy p {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      max-width: 18rem;
+    }
+
+    .mode-pill {
+      padding: 10px 12px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .controls {
+      display: grid;
+      gap: 14px;
+    }
+
+    .button-grid,
+    .shortcut-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .button-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .shortcut-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--panel-strong);
+      color: var(--text);
+      min-height: 58px;
+      padding: 12px 10px;
+      font: inherit;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      box-shadow: var(--shadow);
+    }
+
+    button:active,
+    button.active {
+      transform: scale(0.98);
+      background: rgba(45, 212, 191, 0.18);
+      border-color: rgba(45, 212, 191, 0.5);
+    }
+
+    button.subtle {
+      min-height: 44px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      box-shadow: none;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--muted);
+    }
+
+    button.accent {
+      background: linear-gradient(135deg, rgba(45, 212, 191, 0.25), rgba(79, 209, 197, 0.08));
+      border-color: rgba(45, 212, 191, 0.45);
+    }
+
+    .button-label {
+      display: block;
+      font-size: 0.92rem;
+    }
+
+    .button-hint {
+      display: block;
+      margin-top: 4px;
+      font-size: 0.72rem;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .footer-note {
       text-align: center;
-      padding: 6px;
-      background: #111;
-      position: fixed;
-      top: 0;
-      width: 100%;
+      color: var(--muted);
+      font-size: 0.78rem;
+      padding-bottom: 2px;
+    }
+
+    @media (max-width: 640px) {
+      .settings {
+        grid-template-columns: 1fr;
+      }
+
+      .meta {
+        justify-content: flex-start;
+      }
+
+      .button-grid,
+      .shortcut-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
     }
   </style>
 </head>
 <body>
-  <div id="status">Connecting...</div>
-  <div id="pad"></div>
+  <main class="app-shell">
+    <section class="topbar">
+      <div class="brand">
+        <h1>Remote Mouse</h1>
+        <p>Trackpad, clicks, scrolling, and quick shortcuts from your phone.</p>
+      </div>
+      <div class="status-wrap">
+        <span id="statusDot" class="status-dot"></span>
+        <span id="statusText">Connecting...</span>
+      </div>
+    </section>
+
+    <section class="panel settings">
+      <div class="slider-wrap">
+        <label for="sensitivity">
+          <span>Pointer sensitivity</span>
+          <strong id="sensitivityValue">3.0x</strong>
+        </label>
+        <input id="sensitivity" type="range" min="1" max="5" step="0.25" value="3">
+      </div>
+      <div class="meta">
+        <span class="chip">1 finger: move</span>
+        <span class="chip">2 fingers: scroll</span>
+        <span class="chip">3 fingers: Alt+Tab</span>
+      </div>
+    </section>
+
+    <section id="pad" class="trackpad" aria-label="Trackpad area">
+      <div class="trackpad-copy">
+        <div>
+          <h2>Control Surface</h2>
+          <p>Tap, drag, scroll, or hold drag mode for click-and-drag.</p>
+        </div>
+        <div id="modePill" class="mode-pill">Normal mode</div>
+      </div>
+    </section>
+
+    <section class="controls">
+      <div class="button-grid">
+        <button id="leftClickBtn" class="accent" type="button">
+          <span class="button-label">Left Click</span>
+          <span class="button-hint">Tap button</span>
+        </button>
+        <button id="rightClickBtn" type="button">
+          <span class="button-label">Right Click</span>
+          <span class="button-hint">Context menu</span>
+        </button>
+        <button id="middleClickBtn" type="button">
+          <span class="button-label">Middle Click</span>
+          <span class="button-hint">Open links</span>
+        </button>
+        <button id="dragLockBtn" type="button">
+          <span class="button-label">Drag Lock</span>
+          <span class="button-hint">Hold left mouse</span>
+        </button>
+      </div>
+
+      <div class="shortcut-grid">
+        <button data-key="esc" type="button">
+          <span class="button-label">Esc</span>
+          <span class="button-hint">Dismiss</span>
+        </button>
+        <button data-key="enter" type="button">
+          <span class="button-label">Enter</span>
+          <span class="button-hint">Confirm</span>
+        </button>
+        <button data-key="space" type="button">
+          <span class="button-label">Space</span>
+          <span class="button-hint">Play or pause</span>
+        </button>
+        <button data-key="win_d" type="button">
+          <span class="button-label">Show Desktop</span>
+          <span class="button-hint">Win + D</span>
+        </button>
+      </div>
+
+      <button id="reconnectBtn" class="subtle" type="button">Reconnect</button>
+    </section>
+
+    <p class="footer-note">Keep your phone on the same WiFi network as the laptop.</p>
+  </main>
 
   <script>
     const pad = document.getElementById('pad');
-    const status = document.getElementById('status');
+    const statusText = document.getElementById('statusText');
+    const statusDot = document.getElementById('statusDot');
+    const modePill = document.getElementById('modePill');
+    const sensitivityInput = document.getElementById('sensitivity');
+    const sensitivityValue = document.getElementById('sensitivityValue');
+    const dragLockBtn = document.getElementById('dragLockBtn');
+    const reconnectBtn = document.getElementById('reconnectBtn');
+    const leftClickBtn = document.getElementById('leftClickBtn');
+    const rightClickBtn = document.getElementById('rightClickBtn');
+    const middleClickBtn = document.getElementById('middleClickBtn');
+    const shortcutButtons = Array.from(document.querySelectorAll('[data-key]'));
 
-    const ws = new WebSocket(`ws://${location.host}/ws`);
-    ws.onopen = () => status.textContent = 'Connected';
-    ws.onclose = () => status.textContent = 'Disconnected — refresh to reconnect';
-    ws.onerror = () => status.textContent = 'Error';
-
-    function send(data) {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify(data));
-      }
-    }
+    let ws = null;
+    let reconnectTimer = null;
+    let manualReconnect = false;
 
     let lastSent = 0;
     let activeTouches = {};
     let dragMode = false;
+    let dragLockEnabled = false;
     let tapCount = 0;
     let tapTimer = null;
-    let tapStartX, tapStartY;
+    let tapStartX = 0;
+    let tapStartY = 0;
     let threeFingerActive = false;
     let threeFingerLastX = null;
+
     const TAP_TIMEOUT = 250;
     const MOVE_THRESHOLD = 10;
     const THREE_FINGER_NOTCH = 40;
+    const sensitivityStorageKey = 'remote-mouse-sensitivity';
+
+    const savedSensitivity = Number(localStorage.getItem(sensitivityStorageKey));
+    if (!Number.isNaN(savedSensitivity) && savedSensitivity >= 1 && savedSensitivity <= 5) {
+      sensitivityInput.value = String(savedSensitivity);
+    }
+
+    updateSensitivityLabel();
+    updateModePill();
+    connectWebSocket();
+
+    function connectWebSocket() {
+      clearTimeout(reconnectTimer);
+
+      ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`);
+      setStatus('Connecting...', false);
+
+      ws.onopen = () => {
+        setStatus('Connected', true);
+      };
+
+      ws.onclose = () => {
+        setStatus('Disconnected', false);
+        if (!manualReconnect) {
+          reconnectTimer = setTimeout(connectWebSocket, 1500);
+        }
+        manualReconnect = false;
+      };
+
+      ws.onerror = () => {
+        setStatus('Connection error', false);
+      };
+    }
+
+    function setStatus(text, connected) {
+      statusText.textContent = text;
+      statusDot.classList.toggle('connected', connected);
+    }
+
+    function updateSensitivityLabel() {
+      sensitivityValue.textContent = `${Number(sensitivityInput.value).toFixed(2)}x`;
+    }
+
+    function updateModePill() {
+      modePill.textContent = dragLockEnabled ? 'Drag lock enabled' : 'Normal mode';
+      dragLockBtn.classList.toggle('active', dragLockEnabled);
+    }
+
+    function currentSensitivity() {
+      return Number(sensitivityInput.value);
+    }
+
+    function send(data) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(data));
+      }
+    }
+
+    function pulse(button) {
+      button.classList.add('active');
+      setTimeout(() => button.classList.remove('active'), 130);
+    }
+
+    function vibrate(duration = 12) {
+      if (navigator.vibrate) {
+        navigator.vibrate(duration);
+      }
+    }
+
+    function clickButton(button) {
+      send({ action: 'click', button });
+      vibrate();
+    }
+
+    function keyTap(key) {
+      send({ action: 'key_tap', key });
+      vibrate();
+    }
+
+    sensitivityInput.addEventListener('input', () => {
+      updateSensitivityLabel();
+      localStorage.setItem(sensitivityStorageKey, sensitivityInput.value);
+    });
+
+    reconnectBtn.addEventListener('click', () => {
+      manualReconnect = true;
+      if (ws) {
+        ws.close();
+      }
+      connectWebSocket();
+    });
+
+    leftClickBtn.addEventListener('click', () => clickButton('left'));
+    rightClickBtn.addEventListener('click', () => clickButton('right'));
+    middleClickBtn.addEventListener('click', () => clickButton('middle'));
+
+    dragLockBtn.addEventListener('click', () => {
+      dragLockEnabled = !dragLockEnabled;
+      if (dragLockEnabled) {
+        send({ action: 'mousedown' });
+      } else {
+        send({ action: 'mouseup' });
+      }
+      updateModePill();
+      vibrate();
+    });
+
+    shortcutButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        keyTap(button.dataset.key);
+        pulse(button);
+      });
+    });
 
     pad.addEventListener('touchstart', e => {
       e.preventDefault();
       const touches = e.touches;
 
-      for (let t of touches) {
+      for (const t of touches) {
         activeTouches[t.identifier] = { x: t.clientX, y: t.clientY };
       }
 
@@ -68,18 +548,20 @@
         threeFingerLastX = touches[0].clientX;
         send({ action: 'alt_down' });
         send({ action: 'tab_press' });
+        vibrate();
       }
 
       if (touches.length === 1) {
         tapStartX = touches[0].clientX;
         tapStartY = touches[0].clientY;
 
-        if (tapCount === 1) {
+        if (tapCount === 1 && !dragLockEnabled) {
           clearTimeout(tapTimer);
           tapTimer = null;
           tapCount = 0;
           send({ action: 'mousedown' });
           dragMode = true;
+          vibrate();
         }
       }
     }, { passive: false });
@@ -88,7 +570,7 @@
       e.preventDefault();
       const touches = e.touches.length ? e.touches : e.changedTouches;
       const now = Date.now();
-      if (now - lastSent < 1) return;
+      if (now - lastSent < 4) return;
       lastSent = now;
 
       if (touches.length === 3 && threeFingerActive) {
@@ -98,9 +580,11 @@
         if (diff > THREE_FINGER_NOTCH) {
           send({ action: 'tab_press' });
           threeFingerLastX = currentX;
+          vibrate(8);
         } else if (diff < -THREE_FINGER_NOTCH) {
           send({ action: 'shift_tab_press' });
           threeFingerLastX = currentX;
+          vibrate(8);
         }
         return;
       }
@@ -118,37 +602,38 @@
 
         activeTouches[t1.identifier] = { x: t1.clientX, y: t1.clientY };
         activeTouches[t2.identifier] = { x: t2.clientX, y: t2.clientY };
-
-      } else if (touches.length === 1) {
-        const t = touches[0];
-        const prev = activeTouches[t.identifier];
-        if (!prev) return;
-
-        const dx = (t.clientX - prev.x) * 3;
-        const dy = (t.clientY - prev.y) * 3;
-
-        const totalMoved = Math.abs(t.clientX - tapStartX) + Math.abs(t.clientY - tapStartY);
-        if (totalMoved > MOVE_THRESHOLD && tapTimer) {
-          clearTimeout(tapTimer);
-          tapTimer = null;
-          tapCount = 0;
-        }
-
-        if (dragMode) {
-          send({ action: 'move', dx: Math.round(dx), dy: Math.round(dy) });
-        } else if (totalMoved > MOVE_THRESHOLD) {
-          send({ action: 'move', dx: Math.round(dx), dy: Math.round(dy) });
-        }
-
-        activeTouches[t.identifier] = { x: t.clientX, y: t.clientY };
+        return;
       }
+
+      if (touches.length !== 1) return;
+
+      const t = touches[0];
+      const prev = activeTouches[t.identifier];
+      if (!prev) return;
+
+      const multiplier = currentSensitivity();
+      const dx = (t.clientX - prev.x) * multiplier;
+      const dy = (t.clientY - prev.y) * multiplier;
+
+      const totalMoved = Math.abs(t.clientX - tapStartX) + Math.abs(t.clientY - tapStartY);
+      if (totalMoved > MOVE_THRESHOLD && tapTimer) {
+        clearTimeout(tapTimer);
+        tapTimer = null;
+        tapCount = 0;
+      }
+
+      if (dragMode || dragLockEnabled || totalMoved > MOVE_THRESHOLD) {
+        send({ action: 'move', dx: Math.round(dx), dy: Math.round(dy) });
+      }
+
+      activeTouches[t.identifier] = { x: t.clientX, y: t.clientY };
     }, { passive: false });
 
     pad.addEventListener('touchend', e => {
       e.preventDefault();
       const touches = e.changedTouches;
 
-      for (let t of touches) {
+      for (const t of touches) {
         delete activeTouches[t.identifier];
       }
 
@@ -166,6 +651,8 @@
         return;
       }
 
+      if (dragLockEnabled || !touches[0]) return;
+
       const totalMoved = Math.abs(touches[0].clientX - tapStartX) + Math.abs(touches[0].clientY - tapStartY);
       if (totalMoved > MOVE_THRESHOLD) return;
 
@@ -175,9 +662,10 @@
         tapTimer = setTimeout(() => {
           send({ action: 'click', button: 'left' });
           tapCount = 0;
+          vibrate();
         }, TAP_TIMEOUT);
       }
-    });
+    }, { passive: false });
   </script>
 </body>
 </html>

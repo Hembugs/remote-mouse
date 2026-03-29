@@ -8,6 +8,49 @@ app = Flask(__name__)
 sock = Sock(app)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+user32 = ctypes.windll.user32
+
+MOUSEEVENTF_MOVE = 0x0001
+MOUSEEVENTF_LEFTDOWN = 0x0002
+MOUSEEVENTF_LEFTUP = 0x0004
+MOUSEEVENTF_RIGHTDOWN = 0x0008
+MOUSEEVENTF_RIGHTUP = 0x0010
+MOUSEEVENTF_MIDDLEDOWN = 0x0020
+MOUSEEVENTF_MIDDLEUP = 0x0040
+MOUSEEVENTF_WHEEL = 0x0800
+
+KEYEVENTF_KEYUP = 0x0002
+
+VK_TAB = 0x09
+VK_ENTER = 0x0D
+VK_SHIFT = 0x10
+VK_ALT = 0x12
+VK_ESCAPE = 0x1B
+VK_SPACE = 0x20
+VK_LWIN = 0x5B
+
+SUPPORTED_KEYS = {
+    "esc": VK_ESCAPE,
+    "enter": VK_ENTER,
+    "space": VK_SPACE,
+}
+
+
+def mouse(flags, dx=0, dy=0, data=0):
+    user32.mouse_event(flags, dx, dy, data, 0)
+
+
+def key_down(vk_code):
+    user32.keybd_event(vk_code, 0, 0, 0)
+
+
+def key_up(vk_code):
+    user32.keybd_event(vk_code, 0, KEYEVENTF_KEYUP, 0)
+
+
+def tap_key(vk_code):
+    key_down(vk_code)
+    key_up(vk_code)
 
 @app.route('/')
 def index():
@@ -22,33 +65,42 @@ def websocket(ws):
 
             if action == 'move':
                 dx, dy = int(data['dx']), int(data['dy'])
-                ctypes.windll.user32.mouse_event(0x0001, dx, dy, 0, 0)
+                mouse(MOUSEEVENTF_MOVE, dx=dx, dy=dy)
             elif action == 'click':
                 button = data.get('button', 'left')
                 if button == 'left':
-                    ctypes.windll.user32.mouse_event(0x0002, 0, 0, 0, 0)
-                    ctypes.windll.user32.mouse_event(0x0004, 0, 0, 0, 0)
+                    mouse(MOUSEEVENTF_LEFTDOWN)
+                    mouse(MOUSEEVENTF_LEFTUP)
                 elif button == 'right':
-                    ctypes.windll.user32.mouse_event(0x0008, 0, 0, 0, 0)
-                    ctypes.windll.user32.mouse_event(0x0010, 0, 0, 0, 0)
+                    mouse(MOUSEEVENTF_RIGHTDOWN)
+                    mouse(MOUSEEVENTF_RIGHTUP)
+                elif button == 'middle':
+                    mouse(MOUSEEVENTF_MIDDLEDOWN)
+                    mouse(MOUSEEVENTF_MIDDLEUP)
             elif action == 'scroll':
-                ctypes.windll.user32.mouse_event(0x0800, 0, 0, int(data['amount']) * 120, 0)
+                mouse(MOUSEEVENTF_WHEEL, data=int(data['amount']) * 120)
             elif action == 'mousedown':
-                ctypes.windll.user32.mouse_event(0x0002, 0, 0, 0, 0)
+                mouse(MOUSEEVENTF_LEFTDOWN)
             elif action == 'mouseup':
-                ctypes.windll.user32.mouse_event(0x0004, 0, 0, 0, 0)
+                mouse(MOUSEEVENTF_LEFTUP)
             elif action == 'alt_down':
-                ctypes.windll.user32.keybd_event(0x12, 0, 0, 0)
+                key_down(VK_ALT)
             elif action == 'alt_up':
-                ctypes.windll.user32.keybd_event(0x12, 0, 2, 0)
+                key_up(VK_ALT)
             elif action == 'tab_press':
-                ctypes.windll.user32.keybd_event(0x09, 0, 0, 0)
-                ctypes.windll.user32.keybd_event(0x09, 0, 2, 0)
+                tap_key(VK_TAB)
             elif action == 'shift_tab_press':
-                ctypes.windll.user32.keybd_event(0x10, 0, 0, 0)
-                ctypes.windll.user32.keybd_event(0x09, 0, 0, 0)
-                ctypes.windll.user32.keybd_event(0x09, 0, 2, 0)
-                ctypes.windll.user32.keybd_event(0x10, 0, 2, 0)
+                key_down(VK_SHIFT)
+                tap_key(VK_TAB)
+                key_up(VK_SHIFT)
+            elif action == 'key_tap':
+                key_name = data.get('key')
+                if key_name in SUPPORTED_KEYS:
+                    tap_key(SUPPORTED_KEYS[key_name])
+                elif key_name == 'win_d':
+                    key_down(VK_LWIN)
+                    tap_key(ord('D'))
+                    key_up(VK_LWIN)
         except Exception:
             break
 
