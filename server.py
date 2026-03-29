@@ -5,10 +5,7 @@ import sys
 # signal handling for graceful shutdown
 import signal
 
-# registers websocket routes
-import remote_mouse.handlers
-
-# creates Flask app and Sock
+# creates Flask app and Sock (i.e. the websocket server) instances
 from remote_mouse.app import app
 
 # import logger for signal handler
