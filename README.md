@@ -11,7 +11,7 @@ Control your laptop mouse from your phone browser over WiFi.
 
 Clone the repo, create a virtual environment named `.venv`, and install the dependencies into it.
 
-### PowerShell
+### PowerShell/Command Prompt
 
 ```powershell
 git clone https://github.com/Hembugs/remote-mouse.git
@@ -26,17 +26,6 @@ If PowerShell blocks activation, run this once in the current shell and try agai
 
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-```
-
-### Command Prompt
-
-```bat
-git clone https://github.com/Hembugs/remote-mouse.git
-cd remote-mouse
-python -m venv .venv
-.\.venv\Scripts\activate.bat
-python -m pip install --upgrade pip
-pip install -r requirements.txt
 ```
 
 ## How to Run
