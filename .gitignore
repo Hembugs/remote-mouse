@@ -1,0 +1,26 @@
+# This file is used to specify files and directories that 
+# should be ignored by Git when committing changes to this repository.
+
+# It helps to keep the repository clean by excluding files that are not 
+# relevant to the project, such as temporary files, build artifacts, 
+# and sensitive information.
+
+.venv
+.vscode
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.log
+
+*.db
+*.sqlite3
+.DS_Store
+.idea
+*.iml
+*.sublime-project
+*.sublime-workspace
+*.env
+.env.*
+*.pem
+*.key
