@@ -11,12 +11,17 @@ Control your computer's mouse from a phone browser over your local Wi‑Fi.
 
 ## Installation
 
-Clone the repository and run the included setup script which creates the
-virtual environment, installs dependencies, and prepares VS Code settings:
+Clone the repository:
 
 ```bash
 git clone https://github.com/Hembugs/remote-mouse.git
 cd remote-mouse
+```
+
+Run the included setup script which creates the virtual environment, 
+installs dependencies, and prepares VS Code settings:
+
+```bash
 ./setup_env.sh
 ```
 
@@ -66,6 +71,12 @@ kill $(lsof -t -iTCP:5000 -sTCP:LISTEN)
 ```
 
 If you used `nohup` or a service manager, stop the service the same way you started it (e.g., `kill`, `brew services stop`, or `launchctl remove`).
+
+You can deactivate the virtualenv, if needed, with:
+
+```bash
+deactivate
+```
 
 ## macOS permissions
 
