@@ -40,9 +40,3 @@ Make sure your phone is on the same WiFi as your laptop.
 
 - Only works on your local WiFi network
 - Don't run on public WiFi — no authentication is implemented
-
-Then push it up:
-```
-git add .
-git commit -m "add README"
-git push
