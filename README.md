@@ -36,7 +36,9 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
    python server.py
    ```
 
-2. Find your laptop's local IP address. Open Command Prompt and run:
+2. A QR code window will pop up automatically. Scan it with your phone camera to open the remote directly.
+
+3. If you prefer to type the address manually, find your laptop's local IP address. Open Command Prompt and run:
 
    ```bat
    ipconfig
@@ -44,7 +46,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
    Look for the IPv4 Address under your WiFi adapter.
 
-3. Open your phone browser and go to:
+4. Open your phone browser and go to:
 
    ```text
    http://<your-ip>:5000
@@ -65,3 +67,4 @@ Make sure your phone is on the same WiFi network as your laptop.
 - Only works on your local WiFi network
 - Do not run this on public WiFi because no authentication is implemented
 - To leave the virtual environment later, run `deactivate`
+- If the QR window cannot be displayed, the server still prints the connection URL in the terminal

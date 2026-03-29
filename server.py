@@ -1,14 +1,23 @@
 from flask import Flask, send_file
 from flask_sock import Sock
+import ctypes
 import json
 import os
-import ctypes
+import socket
+import threading
+import time
+import tkinter as tk
+
+import qrcode
+from PIL import ImageTk
 
 app = Flask(__name__)
 sock = Sock(app)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 user32 = ctypes.windll.user32
+SERVER_HOST = "0.0.0.0"
+SERVER_PORT = 5000
 
 MOUSEEVENTF_MOVE = 0x0001
 MOUSEEVENTF_LEFTDOWN = 0x0002
@@ -51,6 +60,106 @@ def key_up(vk_code):
 def tap_key(vk_code):
     key_down(vk_code)
     key_up(vk_code)
+
+
+def get_local_ip():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        sock.connect(("8.8.8.8", 80))
+        return sock.getsockname()[0]
+    except OSError:
+        return "127.0.0.1"
+    finally:
+        sock.close()
+
+
+def build_connection_url():
+    return f"http://{get_local_ip()}:{SERVER_PORT}"
+
+
+def show_qr_popup(url):
+    root = tk.Tk()
+    root.title("Remote Mouse QR Code")
+    root.geometry("420x560")
+    root.resizable(False, False)
+    root.configure(bg="#0f172a")
+
+    qr_image = qrcode.make(url).resize((280, 280))
+    qr_photo = ImageTk.PhotoImage(qr_image)
+
+    frame = tk.Frame(root, bg="#0f172a", padx=24, pady=24)
+    frame.pack(fill="both", expand=True)
+
+    title = tk.Label(
+        frame,
+        text="Scan to Connect",
+        font=("Segoe UI", 20, "bold"),
+        fg="#e2e8f0",
+        bg="#0f172a",
+    )
+    title.pack(pady=(0, 10))
+
+    subtitle = tk.Label(
+        frame,
+        text="Open your phone camera and scan this code while both devices are on the same WiFi network.",
+        font=("Segoe UI", 10),
+        fg="#94a3b8",
+        bg="#0f172a",
+        wraplength=340,
+        justify="center",
+    )
+    subtitle.pack(pady=(0, 18))
+
+    qr_label = tk.Label(frame, image=qr_photo, bg="#ffffff", bd=0)
+    qr_label.image = qr_photo
+    qr_label.pack(pady=(0, 18))
+
+    url_label = tk.Label(
+        frame,
+        text=url,
+        font=("Consolas", 11),
+        fg="#5eead4",
+        bg="#0f172a",
+        wraplength=340,
+        justify="center",
+    )
+    url_label.pack(pady=(0, 18))
+
+    def copy_url():
+        root.clipboard_clear()
+        root.clipboard_append(url)
+        copied_label.config(text="Copied to clipboard")
+
+    copy_button = tk.Button(
+        frame,
+        text="Copy URL",
+        command=copy_url,
+        font=("Segoe UI", 10, "bold"),
+        bg="#14b8a6",
+        fg="#082f49",
+        activebackground="#2dd4bf",
+        activeforeground="#082f49",
+        relief="flat",
+        padx=18,
+        pady=10,
+        cursor="hand2",
+    )
+    copy_button.pack()
+
+    copied_label = tk.Label(
+        frame,
+        text="",
+        font=("Segoe UI", 9),
+        fg="#94a3b8",
+        bg="#0f172a",
+    )
+    copied_label.pack(pady=(12, 0))
+
+    root.mainloop()
+
+
+def run_server():
+    app.run(host=SERVER_HOST, port=SERVER_PORT, debug=False, use_reloader=False)
 
 @app.route('/')
 def index():
@@ -105,4 +214,17 @@ def websocket(ws):
             break
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    connection_url = build_connection_url()
+    print(f"Remote Mouse is running at {connection_url}")
+
+    server_thread = threading.Thread(target=run_server, daemon=False)
+    server_thread.start()
+
+    time.sleep(0.6)
+
+    try:
+        show_qr_popup(connection_url)
+    except tk.TclError:
+        print("QR popup could not be displayed. Use the printed URL instead.")
+
+    server_thread.join()
